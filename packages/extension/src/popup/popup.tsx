@@ -51,7 +51,7 @@ function AuthGate() {
     })
   }, [])
 
-  const loadVaultEntries = useCallback(async () => {
+  const loadVaultEntries = useCallback(() => {
     if (!isVaultUnlocked()) {
       return
     }
