@@ -42,11 +42,10 @@ export default defineConfig(({ mode }) => {
         input: {
           popup: resolve(__dirname, 'src/popup/index.html'),
           background: resolve(__dirname, 'src/background.ts'),
-          content: resolve(__dirname, 'src/content.ts')
         },
         output: {
           entryFileNames: (chunkInfo) => {
-            if (chunkInfo.name === 'background' || chunkInfo.name === 'content') {
+            if (chunkInfo.name === 'background') {
               return '[name].js'
             }
             return 'assets/[name]-[hash].js'
