@@ -10,10 +10,11 @@ Chrome extension password manager (monorepo). Firebase Auth for accounts; Firest
 
 ## Environment
 
-Copy the example env file at the repo root and fill in your Firebase web app values (Firebase console → Project settings → Your apps):
+Copy the example env file at the repo root and fill in your Firebase web app values (Firebase console → Project settings → Your apps). Copy `.firebaserc.example` to `.firebaserc` and set your project ID for Firebase CLI commands.
 
 ```bash
 cp .env.example .env
+cp .firebaserc.example .firebaserc
 ```
 
 Required variables (all prefixed with `VITE_` so the extension build can embed them):
@@ -27,7 +28,9 @@ Required variables (all prefixed with `VITE_` so the extension build can embed t
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | App ID |
 
-Do not commit `.env` (it is gitignored).
+Do not commit `.env` or `.firebaserc` (both are gitignored).
+
+For Firebase Hosting PR previews (optional), set the GitHub repository variable `FIREBASE_PROJECT_ID` and secret `FIREBASE_SERVICE_ACCOUNT` (service account JSON).
 
 ## Install and build
 
@@ -58,7 +61,7 @@ Vault data lives at `users/{uid}/entries`. Security rules are in `firestore.rule
 
 ```bash
 firebase login
-firebase use jpass-f7971   # or your project ID in .firebaserc
+firebase use your-project-id   # must match .firebaserc
 firebase deploy --only firestore:rules
 ```
 
