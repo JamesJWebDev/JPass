@@ -7,6 +7,7 @@
   "module": "./dist/index.js",
   "types": "./src/index.ts",
   "dependencies": {
+    "@jpass/core": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
