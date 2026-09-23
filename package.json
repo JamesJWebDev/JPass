@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "build": "npm run build --workspaces",
     "build:ui": "npm run build --workspace=@jpass/ui",
-    "build:extension": "npm run build --workspace=@jpass/extension"
+    "build:extension": "npm run build --workspace=@jpass/extension",
+    "smoke:vault": "node scripts/smoke-vault.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
