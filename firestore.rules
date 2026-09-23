@@ -2,10 +2,19 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /users/{userId}/vault/meta {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidVaultMeta(request.resource.data);
+      allow delete: if false;
+    }
+
     match /users/{userId}/entries/{entryId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidEntry(request.resource.data);
-      allow update: if isOwner(userId) && isValidEntryUpdate(request.resource.data, resource.data);
+      allow create: if isOwner(userId)
+        && (isValidLegacyEntry(request.resource.data) || isValidEncryptedEntry(request.resource.data));
+      allow update: if isOwner(userId)
+        && (isValidLegacyEntryUpdate(request.resource.data, resource.data)
+          || isValidEncryptedEntryUpdate(request.resource.data, resource.data));
       allow delete: if isOwner(userId);
     }
   }
@@ -14,9 +23,23 @@ service cloud.firestore {
     return request.auth != null && request.auth.uid == userId;
   }
 
-  function entryFieldsValid(data) {
-    return data.keys().hasAll(['site', 'username', 'password', 'createdAt'])
-      && data.site is string
+  function isValidVaultMeta(data) {
+    return data.keys().hasOnly(['kdfSalt', 'verifierIv', 'verifierCipher', 'encryptionVersion'])
+      && data.kdfSalt is string
+      && data.kdfSalt.size() > 0
+      && data.kdfSalt.size() <= 64
+      && data.verifierIv is string
+      && data.verifierIv.size() > 0
+      && data.verifierIv.size() <= 64
+      && data.verifierCipher is string
+      && data.verifierCipher.size() > 0
+      && data.verifierCipher.size() <= 512
+      && data.encryptionVersion is int
+      && data.encryptionVersion == 1;
+  }
+
+  function legacyFieldsValid(data) {
+    return data.site is string
       && data.site.size() > 0
       && data.site.size() <= 200
       && data.username is string
@@ -27,14 +50,36 @@ service cloud.firestore {
       && data.createdAt is timestamp;
   }
 
-  function isValidEntry(data) {
+  function isValidLegacyEntry(data) {
     return data.keys().hasOnly(['site', 'username', 'password', 'createdAt'])
-      && entryFieldsValid(data);
+      && legacyFieldsValid(data);
   }
 
-  function isValidEntryUpdate(newData, oldData) {
+  function isValidLegacyEntryUpdate(newData, oldData) {
     return newData.keys().hasOnly(['site', 'username', 'password', 'createdAt'])
-      && entryFieldsValid(newData)
+      && legacyFieldsValid(newData)
+      && newData.createdAt == oldData.createdAt;
+  }
+
+  function encryptedFieldsValid(data) {
+    return data.schemaVersion == 2
+      && data.payloadIv is string
+      && data.payloadIv.size() > 0
+      && data.payloadIv.size() <= 64
+      && data.payloadCipher is string
+      && data.payloadCipher.size() > 0
+      && data.payloadCipher.size() <= 10000
+      && data.createdAt is timestamp;
+  }
+
+  function isValidEncryptedEntry(data) {
+    return data.keys().hasOnly(['schemaVersion', 'payloadIv', 'payloadCipher', 'createdAt'])
+      && encryptedFieldsValid(data);
+  }
+
+  function isValidEncryptedEntryUpdate(newData, oldData) {
+    return newData.keys().hasOnly(['schemaVersion', 'payloadIv', 'payloadCipher', 'createdAt'])
+      && encryptedFieldsValid(newData)
       && newData.createdAt == oldData.createdAt;
   }
 }

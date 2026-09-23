@@ -6,6 +6,23 @@ import fs from 'node:fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+function resolveLibsodium() {
+  const libsodiumPath = resolve(
+    __dirname,
+    '../../node_modules/libsodium/dist/modules-esm/libsodium.mjs'
+  )
+
+  return {
+    name: 'resolve-libsodium',
+    resolveId(source: string, importer: string | undefined) {
+      if (source === './libsodium.mjs' && importer?.includes('libsodium-wrappers')) {
+        return libsodiumPath
+      }
+      return null
+    },
+  }
+}
+
 function copyManifest() {
   return {
     name: 'copy-manifest',
@@ -25,12 +42,12 @@ export default defineConfig(({ mode }) => {
   )
 
   return {
-    plugins: [react(), copyManifest()],
+    plugins: [react(), resolveLibsodium(), copyManifest()],
     resolve: {
       alias: {
         '@jpass/ui': resolve(__dirname, '../ui/src/index.ts'),
-        '@jpass/core': resolve(__dirname, '../core/src/index.ts')
-      }
+        '@jpass/core': resolve(__dirname, '../core/src/index.ts'),
+      },
     },
     root: 'src',
     define: envDefines,

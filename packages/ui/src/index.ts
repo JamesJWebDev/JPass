@@ -1,4 +1,6 @@
 export { Login } from './Login'
 export type { LoginProps } from './Login'
+export { MasterPasswordGate } from './MasterPasswordGate'
+export type { MasterPasswordGateProps } from './MasterPasswordGate'
 export { Vault } from './Vault'
 export type { VaultProps } from './Vault'
