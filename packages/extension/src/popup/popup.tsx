@@ -17,6 +17,7 @@ function AuthGate() {
   const [entries, setEntries] = useState<VaultEntry[]>([])
   const [vaultLoading, setVaultLoading] = useState(false)
   const [vaultSaving, setVaultSaving] = useState(false)
+  const [mutatingEntryId, setMutatingEntryId] = useState<string | null>(null)
   const [vaultError, setVaultError] = useState<string | null>(null)
 
   const loadVaultEntries = useCallback(() => {
@@ -76,6 +77,35 @@ function AuthGate() {
     })
   }
 
+  function handleUpdateEntry(id: string, input: VaultEntryInput) {
+    setMutatingEntryId(id)
+    setVaultError(null)
+    chrome.runtime.sendMessage({ action: 'updateVaultEntry', data: { id, ...input } }, (response) => {
+      setMutatingEntryId(null)
+      if (response?.success) {
+        loadVaultEntries()
+      } else {
+        setVaultError(response?.error ?? 'Could not update entry')
+      }
+    })
+  }
+
+  function handleDeleteEntry(id: string) {
+    if (!window.confirm('Delete this vault entry?')) {
+      return
+    }
+    setMutatingEntryId(id)
+    setVaultError(null)
+    chrome.runtime.sendMessage({ action: 'deleteVaultEntry', data: { id } }, (response) => {
+      setMutatingEntryId(null)
+      if (response?.success) {
+        loadVaultEntries()
+      } else {
+        setVaultError(response?.error ?? 'Could not delete entry')
+      }
+    })
+  }
+
   function handleLogout() {
     chrome.runtime.sendMessage({ action: 'logoutUser' }, (response) => {
       if (response?.success) {
@@ -106,8 +136,11 @@ function AuthGate() {
         entries={entries}
         loading={vaultLoading}
         saving={vaultSaving}
+        mutatingEntryId={mutatingEntryId}
         error={vaultError}
         onSaveEntry={handleSaveEntry}
+        onUpdateEntry={handleUpdateEntry}
+        onDeleteEntry={handleDeleteEntry}
         onLogout={handleLogout}
       />
     )

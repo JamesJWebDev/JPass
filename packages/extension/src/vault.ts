@@ -2,16 +2,23 @@ import type { VaultEntry, VaultEntryInput } from '@jpass/core'
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
   Timestamp,
+  updateDoc,
 } from 'firebase/firestore'
 import { getFirestore } from './firebase'
 
 function entriesCollection(uid: string) {
   return collection(getFirestore(), 'users', uid, 'entries')
+}
+
+function entryDocument(uid: string, entryId: string) {
+  return doc(getFirestore(), 'users', uid, 'entries', entryId)
 }
 
 export async function saveVaultEntry(uid: string, input: VaultEntryInput): Promise<string> {
@@ -22,6 +29,22 @@ export async function saveVaultEntry(uid: string, input: VaultEntryInput): Promi
     createdAt: serverTimestamp(),
   })
   return docRef.id
+}
+
+export async function updateVaultEntry(
+  uid: string,
+  entryId: string,
+  input: VaultEntryInput
+): Promise<void> {
+  await updateDoc(entryDocument(uid, entryId), {
+    site: input.site.trim(),
+    username: input.username.trim(),
+    password: input.password,
+  })
+}
+
+export async function deleteVaultEntry(uid: string, entryId: string): Promise<void> {
+  await deleteDoc(entryDocument(uid, entryId))
 }
 
 export async function listVaultEntries(uid: string): Promise<VaultEntry[]> {
