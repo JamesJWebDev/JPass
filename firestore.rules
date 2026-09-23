@@ -5,7 +5,8 @@ service cloud.firestore {
     match /users/{userId}/entries/{entryId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidEntry(request.resource.data);
-      allow update, delete: if false;
+      allow update: if isOwner(userId) && isValidEntryUpdate(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
     }
   }
 
@@ -13,8 +14,8 @@ service cloud.firestore {
     return request.auth != null && request.auth.uid == userId;
   }
 
-  function isValidEntry(data) {
-    return data.keys().hasOnly(['site', 'username', 'password', 'createdAt'])
+  function entryFieldsValid(data) {
+    return data.keys().hasAll(['site', 'username', 'password', 'createdAt'])
       && data.site is string
       && data.site.size() > 0
       && data.site.size() <= 200
@@ -24,5 +25,16 @@ service cloud.firestore {
       && data.password.size() > 0
       && data.password.size() <= 500
       && data.createdAt is timestamp;
+  }
+
+  function isValidEntry(data) {
+    return data.keys().hasOnly(['site', 'username', 'password', 'createdAt'])
+      && entryFieldsValid(data);
+  }
+
+  function isValidEntryUpdate(newData, oldData) {
+    return newData.keys().hasOnly(['site', 'username', 'password', 'createdAt'])
+      && entryFieldsValid(newData)
+      && newData.createdAt == oldData.createdAt;
   }
 }

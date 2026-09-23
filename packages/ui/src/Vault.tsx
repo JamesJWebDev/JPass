@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { VaultEntry, VaultEntryInput } from '@jpass/core'
+import { VaultEntryRow } from './VaultEntryRow'
 import './app.css'
 import './login.css'
 import './vault.css'
@@ -9,8 +10,11 @@ export interface VaultProps {
   entries: VaultEntry[]
   loading: boolean
   saving: boolean
+  mutatingEntryId: string | null
   error: string | null
   onSaveEntry: (entry: VaultEntryInput) => void
+  onUpdateEntry: (id: string, entry: VaultEntryInput) => void
+  onDeleteEntry: (id: string) => void
   onLogout: () => void
 }
 
@@ -19,8 +23,11 @@ export function Vault({
   entries,
   loading,
   saving,
+  mutatingEntryId,
   error,
   onSaveEntry,
+  onUpdateEntry,
+  onDeleteEntry,
   onLogout,
 }: VaultProps) {
   const [site, setSite] = useState('')
@@ -87,10 +94,13 @@ export function Vault({
         ) : (
           <ul className="jpass-vault__list">
             {entries.map((entry) => (
-              <li key={entry.id} className="jpass-vault__item">
-                <span className="jpass-vault__site">{entry.site}</span>
-                <span className="jpass-vault__meta">{entry.username || '—'}</span>
-              </li>
+              <VaultEntryRow
+                key={entry.id}
+                entry={entry}
+                busy={mutatingEntryId === entry.id}
+                onUpdate={onUpdateEntry}
+                onDelete={onDeleteEntry}
+              />
             ))}
           </ul>
         )}

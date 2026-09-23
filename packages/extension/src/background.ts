@@ -1,6 +1,6 @@
 import { requireAuthUser } from './auth'
 import { getFirebaseAuth } from './firebase'
-import { listVaultEntries, saveVaultEntry } from './vault'
+import { deleteVaultEntry, listVaultEntries, saveVaultEntry, updateVaultEntry } from './vault'
 import type { VaultEntryInput } from '@jpass/core'
 import {
   createUserWithEmailAndPassword,
@@ -67,6 +67,26 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     requireAuthUser()
       .then((user) => saveVaultEntry(user.uid, input))
       .then((id) => sendResponse({ success: true, id }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'updateVaultEntry') {
+    const { id, ...input } = request.data as VaultEntryInput & { id: string }
+    requireAuthUser()
+      .then((user) => updateVaultEntry(user.uid, id, input))
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'deleteVaultEntry') {
+    const { id } = request.data as { id: string }
+    requireAuthUser()
+      .then((user) => deleteVaultEntry(user.uid, id))
+      .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }))
 
     return true
