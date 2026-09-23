@@ -1,5 +1,11 @@
 import { requireAuthUser } from './auth'
 import { getFirebaseAuth } from './firebase'
+import {
+  getVaultStatusForUser,
+  setupVaultMaster,
+  unlockVault,
+} from './vaultMeta'
+import { lockVault } from './vaultSession'
 import { deleteVaultEntry, listVaultEntries, saveVaultEntry, updateVaultEntry } from './vault'
 import type { VaultEntryInput } from '@jpass/core'
 import {
@@ -32,7 +38,43 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'logoutUser') {
+    lockVault()
     signOut(getFirebaseAuth())
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'lockVault') {
+    lockVault()
+    sendResponse({ success: true })
+    return true
+  }
+
+  if (request.action === 'getVaultStatus') {
+    requireAuthUser()
+      .then((user) => getVaultStatusForUser(user.uid))
+      .then((status) => sendResponse({ success: true, ...status }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'setupVaultMaster') {
+    const { masterPassword } = request.data as { masterPassword: string }
+    requireAuthUser()
+      .then((user) => setupVaultMaster(user.uid, masterPassword))
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'unlockVault') {
+    const { masterPassword } = request.data as { masterPassword: string }
+    requireAuthUser()
+      .then((user) => unlockVault(user.uid, masterPassword))
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }))
 

@@ -1,6 +1,6 @@
 # JPass
 
-Chrome extension password manager (monorepo). Firebase Auth for accounts; Firestore stores vault entries per user.
+Chrome extension password manager (monorepo). Firebase Auth for accounts; Firestore stores **encrypted** vault payloads. Vault crypto uses [libsodium](https://libsodium.gitbook.io/) (`crypto_pwhash` + `crypto_secretbox`) via `libsodium-wrappers` in `@jpass/core`.
 
 ## Prerequisites
 
