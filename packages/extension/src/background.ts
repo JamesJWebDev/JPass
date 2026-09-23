@@ -1,6 +1,7 @@
 import { getFirebaseAuth } from './firebase'
 import {
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth'
@@ -31,6 +32,20 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     signOut(getFirebaseAuth())
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'getSession') {
+    const auth = getFirebaseAuth()
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe()
+      if (user) {
+        sendResponse({ success: true, uid: user.uid, email: user.email })
+      } else {
+        sendResponse({ success: true, uid: null, email: null })
+      }
+    })
 
     return true
   }

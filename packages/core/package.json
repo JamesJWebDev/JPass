@@ -2,5 +2,8 @@
   "name": "@jpass/core",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  }
 }

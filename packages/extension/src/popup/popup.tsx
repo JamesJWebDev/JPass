@@ -1,4 +1,4 @@
-import { StrictMode, useState } from 'react'
+import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Login } from '@jpass/ui'
 
@@ -12,6 +12,16 @@ function AuthGate() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [bootstrapping, setBootstrapping] = useState(true)
+
+  useEffect(() => {
+    chrome.runtime.sendMessage({ action: 'getSession' }, (response) => {
+      setBootstrapping(false)
+      if (response?.success && response.uid) {
+        setUser({ uid: response.uid, email: response.email ?? null })
+      }
+    })
+  }, [])
 
   function handleSubmit(email: string, password: string) {
     setError(null)
@@ -28,8 +38,23 @@ function AuthGate() {
   }
 
   function handleLogout() {
-    setUser(null)
-    chrome.runtime.sendMessage({ action: 'logoutUser' }, () => {})
+    chrome.runtime.sendMessage({ action: 'logoutUser' }, (response) => {
+      if (response?.success) {
+        setUser(null)
+      }
+    })
+  }
+
+  if (bootstrapping) {
+    return (
+      <main className="jpass">
+        <header className="jpass__header">
+          <span className="jpass__logo" aria-hidden="true">🔐</span>
+          <h1 className="jpass__title">JPass</h1>
+        </header>
+        <p className="jpass__subtitle">Loading…</p>
+      </main>
+    )
   }
 
   if (user) {
