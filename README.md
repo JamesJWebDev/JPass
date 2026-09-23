@@ -64,6 +64,12 @@ firebase deploy --only firestore:rules
 
 Without deployed rules, signed-in users will get permission errors when saving or listing entries.
 
+To verify Auth + Firestore + rules against your project (creates a temporary test user):
+
+```bash
+npm run smoke:vault
+```
+
 ## Packages
 
 | Package | Role |
