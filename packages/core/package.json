@@ -3,13 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "libsodium": "^0.7.15",
-    "libsodium-wrappers": "^0.7.15"
-  },
-  "devDependencies": {
-    "@types/libsodium-wrappers": "^0.7.14"
-  },
   "scripts": {
     "build": "node -e \"process.exit(0)\""
   }

@@ -35,7 +35,7 @@ service cloud.firestore {
       && data.verifierCipher.size() > 0
       && data.verifierCipher.size() <= 512
       && data.encryptionVersion is int
-      && data.encryptionVersion == 1;
+      && data.encryptionVersion == 2;
   }
 
   function legacyFieldsValid(data) {
