@@ -18,7 +18,7 @@ import {
 export async function prepareVaultMeta(
   masterPassword: string
 ): Promise<{ meta: VaultMetaRecord; key: VaultKey }> {
-  const kdfSalt = await generateSaltBase64()
+  const kdfSalt = generateSaltBase64()
   const key = await deriveVaultKey(masterPassword, kdfSalt)
   const verifier = await createVerifierBlob(key)
 
@@ -28,7 +28,7 @@ export async function prepareVaultMeta(
       kdfSalt,
       verifierIv: verifier.iv,
       verifierCipher: verifier.ciphertext,
-      encryptionVersion: 1,
+      encryptionVersion: 2,
     },
   }
 }
@@ -37,6 +37,12 @@ export async function unlockVaultKey(
   masterPassword: string,
   meta: VaultMetaRecord
 ): Promise<VaultKey> {
+  if (meta.encryptionVersion !== 2) {
+    throw new Error(
+      'This vault was created with an older encryption format. Set a new master password to re-create the vault (existing encrypted entries may need to be re-added).'
+    )
+  }
+
   const key = await deriveVaultKey(masterPassword, meta.kdfSalt)
   const valid = await verifyVaultKey(key, {
     iv: meta.verifierIv,

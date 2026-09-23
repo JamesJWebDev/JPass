@@ -1,6 +1,6 @@
 # JPass
 
-Chrome extension password manager (monorepo). Firebase Auth for accounts; Firestore stores **encrypted** vault payloads. Vault crypto uses [libsodium](https://libsodium.gitbook.io/) (`crypto_pwhash` + `crypto_secretbox`) via `libsodium-wrappers` in `@jpass/core`. Encryption runs in the **popup**; the service worker only reads/writes ciphertext to Firestore (keeps the MV3 service worker loadable).
+Chrome extension password manager (monorepo). Firebase Auth for accounts; Firestore stores **encrypted** vault payloads. Vault crypto in `@jpass/core` uses the browser **Web Crypto API** (PBKDF2-SHA256 + AES-GCM) in the **popup**; the service worker only reads/writes ciphertext to Firestore.
 
 ## Prerequisites
 

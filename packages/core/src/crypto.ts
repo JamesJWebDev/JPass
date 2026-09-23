@@ -1,51 +1,86 @@
-import _sodium from 'libsodium-wrappers'
-
 export const VAULT_VERIFIER_PLAINTEXT = 'jpass-vault-v1'
 export const VAULT_SCHEMA_VERSION = 2
+export const PBKDF2_ITERATIONS = 310_000
+export const KDF_SALT_BYTES = 16
 
-export type VaultKey = Uint8Array
+export type VaultKey = CryptoKey
 
 export interface EncryptedBlob {
   iv: string
   ciphertext: string
 }
 
-let sodiumReady: Promise<typeof _sodium> | undefined
-
-function getSodium(): Promise<typeof _sodium> {
-  if (!sodiumReady) {
-    sodiumReady = _sodium.ready.then(() => _sodium)
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
   }
-  return sodiumReady
+  return btoa(binary)
 }
 
-export async function generateSaltBase64(): Promise<string> {
-  const sodium = await getSodium()
-  return sodium.to_base64(sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES))
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+export function generateSaltBase64(): string {
+  const salt = crypto.getRandomValues(new Uint8Array(KDF_SALT_BYTES))
+  return bytesToBase64(salt)
+}
+
+export async function ensureSodiumReady(): Promise<void> {
+  // Legacy no-op: kept so popup startup code does not break after Web Crypto migration.
 }
 
 export async function deriveVaultKey(masterPassword: string, saltBase64: string): Promise<VaultKey> {
-  const sodium = await getSodium()
-  const salt = sodium.from_base64(saltBase64)
+  if (!masterPassword) {
+    throw new Error('Master password is required')
+  }
 
-  return sodium.crypto_pwhash(
-    sodium.crypto_secretbox_KEYBYTES,
-    masterPassword,
-    salt,
-    sodium.crypto_pwhash_OPSLIMIT_MODERATE,
-    sodium.crypto_pwhash_MEMLIMIT_MODERATE,
-    sodium.crypto_pwhash_ALG_ARGON2ID13
+  const salt = base64ToBytes(saltBase64)
+  if (salt.length !== KDF_SALT_BYTES) {
+    throw new Error('Invalid vault salt')
+  }
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(masterPassword),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  )
+
+  const saltBuffer = new Uint8Array(salt)
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: saltBuffer,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
   )
 }
 
 export async function encryptString(key: VaultKey, plaintext: string): Promise<EncryptedBlob> {
-  const sodium = await getSodium()
-  const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
-  const ciphertext = sodium.crypto_secretbox_easy(plaintext, nonce, key)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    new TextEncoder().encode(plaintext)
+  )
 
   return {
-    iv: sodium.to_base64(nonce),
-    ciphertext: sodium.to_base64(ciphertext),
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
   }
 }
 
@@ -54,10 +89,10 @@ export async function decryptString(
   ivBase64: string,
   ciphertextBase64: string
 ): Promise<string> {
-  const sodium = await getSodium()
-  const nonce = sodium.from_base64(ivBase64)
-  const ciphertext = sodium.from_base64(ciphertextBase64)
-  return sodium.crypto_secretbox_open_easy(ciphertext, nonce, key)
+  const iv = new Uint8Array(base64ToBytes(ivBase64))
+  const ciphertext = new Uint8Array(base64ToBytes(ciphertextBase64))
+  const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+  return new TextDecoder().decode(plainBuffer)
 }
 
 export async function createVerifierBlob(key: VaultKey): Promise<EncryptedBlob> {
