@@ -1,4 +1,7 @@
+import { requireAuthUser } from './auth'
 import { getFirebaseAuth } from './firebase'
+import { listVaultEntries, saveVaultEntry } from './vault'
+import type { VaultEntryInput } from '@jpass/core'
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -46,6 +49,25 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         sendResponse({ success: true, uid: null, email: null })
       }
     })
+
+    return true
+  }
+
+  if (request.action === 'listVaultEntries') {
+    requireAuthUser()
+      .then((user) => listVaultEntries(user.uid))
+      .then((entries) => sendResponse({ success: true, entries }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'saveVaultEntry') {
+    const input = request.data as VaultEntryInput
+    requireAuthUser()
+      .then((user) => saveVaultEntry(user.uid, input))
+      .then((id) => sendResponse({ success: true, id }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
 
     return true
   }
