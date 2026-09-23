@@ -1,7 +1,14 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import type { VaultEntry, VaultEntryInput } from '@jpass/core'
+import type { StoredVaultEntry, VaultEntry, VaultEntryInput, VaultMetaRecord } from '@jpass/core'
 import { Login, MasterPasswordGate, Vault } from '@jpass/ui'
+import {
+  decryptStoredEntry,
+  encryptVaultEntry,
+  prepareVaultMeta,
+  unlockVaultKey,
+} from './vaultCrypto'
+import { getVaultKey, isVaultUnlocked, lockVault, setVaultKey } from './vaultSession'
 
 interface SessionUser {
   uid: string
@@ -36,7 +43,7 @@ function AuthGate() {
       if (response?.success) {
         setVaultStatus({
           configured: Boolean(response.configured),
-          unlocked: Boolean(response.unlocked),
+          unlocked: isVaultUnlocked(),
         })
       } else {
         setMasterError(response?.error ?? 'Could not load vault status')
@@ -44,15 +51,31 @@ function AuthGate() {
     })
   }, [])
 
-  const loadVaultEntries = useCallback(() => {
+  const loadVaultEntries = useCallback(async () => {
+    if (!isVaultUnlocked()) {
+      return
+    }
+
     setVaultLoading(true)
     setVaultError(null)
-    chrome.runtime.sendMessage({ action: 'listVaultEntries' }, (response) => {
-      setVaultLoading(false)
-      if (response?.success) {
-        setEntries(response.entries ?? [])
-      } else {
+
+    chrome.runtime.sendMessage({ action: 'listVaultEntries' }, async (response) => {
+      if (!response?.success) {
+        setVaultLoading(false)
         setVaultError(response?.error ?? 'Could not load vault')
+        return
+      }
+
+      try {
+        const key = getVaultKey()
+        const stored = (response.entries ?? []) as StoredVaultEntry[]
+        const decrypted = await Promise.all(stored.map((entry) => decryptStoredEntry(key, entry)))
+        setEntries(decrypted)
+      } catch (err) {
+        setVaultError(err instanceof Error ? err.message : 'Could not decrypt vault')
+        setEntries([])
+      } finally {
+        setVaultLoading(false)
       }
     })
   }, [])
@@ -70,6 +93,7 @@ function AuthGate() {
     if (user) {
       refreshVaultStatus()
     } else {
+      lockVault()
       setVaultStatus(null)
       setEntries([])
     }
@@ -97,56 +121,97 @@ function AuthGate() {
     })
   }
 
-  function handleSetupMaster(masterPassword: string) {
+  async function handleSetupMaster(masterPassword: string) {
     setMasterLoading(true)
     setMasterError(null)
-    chrome.runtime.sendMessage({ action: 'setupVaultMaster', data: { masterPassword } }, (response) => {
+
+    try {
+      const { meta, key } = await prepareVaultMeta(masterPassword)
+
+      chrome.runtime.sendMessage({ action: 'saveVaultMeta', data: meta }, (response) => {
+        setMasterLoading(false)
+        if (response?.success) {
+          setVaultKey(key)
+          setVaultStatus({ configured: true, unlocked: true })
+        } else {
+          setMasterError(response?.error ?? 'Could not create vault')
+        }
+      })
+    } catch (err) {
       setMasterLoading(false)
-      if (response?.success) {
-        refreshVaultStatus()
-      } else {
-        setMasterError(response?.error ?? 'Could not create vault')
-      }
-    })
+      setMasterError(err instanceof Error ? err.message : 'Could not create vault')
+    }
   }
 
   function handleUnlockMaster(masterPassword: string) {
     setMasterLoading(true)
     setMasterError(null)
-    chrome.runtime.sendMessage({ action: 'unlockVault', data: { masterPassword } }, (response) => {
-      setMasterLoading(false)
-      if (response?.success) {
-        refreshVaultStatus()
-      } else {
-        setMasterError(response?.error ?? 'Could not unlock vault')
+
+    chrome.runtime.sendMessage({ action: 'getVaultMeta' }, async (response) => {
+      if (!response?.success || !response.meta) {
+        setMasterLoading(false)
+        setMasterError(response?.error ?? 'Vault metadata not found')
+        return
+      }
+
+      try {
+        const key = await unlockVaultKey(masterPassword, response.meta as VaultMetaRecord)
+        setVaultKey(key)
+        setVaultStatus({ configured: true, unlocked: true })
+        setMasterLoading(false)
+      } catch (err) {
+        setMasterLoading(false)
+        setMasterError(err instanceof Error ? err.message : 'Could not unlock vault')
       }
     })
   }
 
-  function handleSaveEntry(input: VaultEntryInput) {
+  async function handleSaveEntry(input: VaultEntryInput) {
     setVaultSaving(true)
     setVaultError(null)
-    chrome.runtime.sendMessage({ action: 'saveVaultEntry', data: input }, (response) => {
+
+    try {
+      const key = getVaultKey()
+      const document = await encryptVaultEntry(key, input)
+      chrome.runtime.sendMessage({ action: 'saveVaultEntry', data: { document } }, (response) => {
+        setVaultSaving(false)
+        if (response?.success) {
+          loadVaultEntries()
+        } else {
+          setVaultError(response?.error ?? 'Could not save entry')
+        }
+      })
+    } catch (err) {
       setVaultSaving(false)
-      if (response?.success) {
-        loadVaultEntries()
-      } else {
-        setVaultError(response?.error ?? 'Could not save entry')
-      }
-    })
+      setVaultError(err instanceof Error ? err.message : 'Could not save entry')
+    }
   }
 
-  function handleUpdateEntry(id: string, input: VaultEntryInput) {
+  async function handleUpdateEntry(id: string, input: VaultEntryInput) {
     setMutatingEntryId(id)
     setVaultError(null)
-    chrome.runtime.sendMessage({ action: 'updateVaultEntry', data: { id, ...input } }, (response) => {
+
+    try {
+      const key = getVaultKey()
+      const document = await encryptVaultEntry(key, input)
+      chrome.runtime.sendMessage(
+        {
+          action: 'updateVaultEntry',
+          data: { id, document, stripLegacyFields: true },
+        },
+        (response) => {
+          setMutatingEntryId(null)
+          if (response?.success) {
+            loadVaultEntries()
+          } else {
+            setVaultError(response?.error ?? 'Could not update entry')
+          }
+        }
+      )
+    } catch (err) {
       setMutatingEntryId(null)
-      if (response?.success) {
-        loadVaultEntries()
-      } else {
-        setVaultError(response?.error ?? 'Could not update entry')
-      }
-    })
+      setVaultError(err instanceof Error ? err.message : 'Could not update entry')
+    }
   }
 
   function handleDeleteEntry(id: string) {
@@ -166,6 +231,7 @@ function AuthGate() {
   }
 
   function handleLogout() {
+    lockVault()
     chrome.runtime.sendMessage({ action: 'logoutUser' }, (response) => {
       if (response?.success) {
         setUser(null)

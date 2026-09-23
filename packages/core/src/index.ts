@@ -1,4 +1,9 @@
-export type { VaultEntry, VaultEntryInput } from './vault'
+export type {
+  StoredVaultEntry,
+  VaultEntry,
+  VaultEntryInput,
+  VaultMetaRecord,
+} from './vault'
 export {
   VAULT_SCHEMA_VERSION,
   VAULT_VERIFIER_PLAINTEXT,
