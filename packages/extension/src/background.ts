@@ -1,13 +1,14 @@
 import { requireAuthUser } from './auth'
 import { getFirebaseAuth } from './firebase'
+import { getVaultMeta, isVaultConfigured, saveVaultMeta } from './vaultMeta'
 import {
-  getVaultStatusForUser,
-  setupVaultMaster,
-  unlockVault,
-} from './vaultMeta'
-import { lockVault } from './vaultSession'
-import { deleteVaultEntry, listVaultEntries, saveVaultEntry, updateVaultEntry } from './vault'
-import type { VaultEntryInput } from '@jpass/core'
+  deleteVaultEntry,
+  listVaultEntries,
+  saveVaultEntry,
+  updateVaultEntry,
+  deleteField,
+} from './vault'
+import type { VaultMetaRecord } from '@jpass/core'
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -38,43 +39,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'logoutUser') {
-    lockVault()
     signOut(getFirebaseAuth())
-      .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: error.message }))
-
-    return true
-  }
-
-  if (request.action === 'lockVault') {
-    lockVault()
-    sendResponse({ success: true })
-    return true
-  }
-
-  if (request.action === 'getVaultStatus') {
-    requireAuthUser()
-      .then((user) => getVaultStatusForUser(user.uid))
-      .then((status) => sendResponse({ success: true, ...status }))
-      .catch((error) => sendResponse({ success: false, error: error.message }))
-
-    return true
-  }
-
-  if (request.action === 'setupVaultMaster') {
-    const { masterPassword } = request.data as { masterPassword: string }
-    requireAuthUser()
-      .then((user) => setupVaultMaster(user.uid, masterPassword))
-      .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: error.message }))
-
-    return true
-  }
-
-  if (request.action === 'unlockVault') {
-    const { masterPassword } = request.data as { masterPassword: string }
-    requireAuthUser()
-      .then((user) => unlockVault(user.uid, masterPassword))
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }))
 
@@ -95,6 +60,34 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     return true
   }
 
+  if (request.action === 'getVaultStatus') {
+    requireAuthUser()
+      .then((user) => isVaultConfigured(user.uid))
+      .then((configured) => sendResponse({ success: true, configured }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'getVaultMeta') {
+    requireAuthUser()
+      .then((user) => getVaultMeta(user.uid))
+      .then((meta) => sendResponse({ success: true, meta }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
+  if (request.action === 'saveVaultMeta') {
+    const meta = request.data as VaultMetaRecord
+    requireAuthUser()
+      .then((user) => saveVaultMeta(user.uid, meta))
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }))
+
+    return true
+  }
+
   if (request.action === 'listVaultEntries') {
     requireAuthUser()
       .then((user) => listVaultEntries(user.uid))
@@ -105,9 +98,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'saveVaultEntry') {
-    const input = request.data as VaultEntryInput
+    const { document } = request.data as { document: Record<string, unknown> }
     requireAuthUser()
-      .then((user) => saveVaultEntry(user.uid, input))
+      .then((user) => saveVaultEntry(user.uid, document))
       .then((id) => sendResponse({ success: true, id }))
       .catch((error) => sendResponse({ success: false, error: error.message }))
 
@@ -115,9 +108,23 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'updateVaultEntry') {
-    const { id, ...input } = request.data as VaultEntryInput & { id: string }
+    const { id, document, stripLegacyFields } = request.data as {
+      id: string
+      document: Record<string, unknown>
+      stripLegacyFields?: boolean
+    }
     requireAuthUser()
-      .then((user) => updateVaultEntry(user.uid, id, input))
+      .then((user) => {
+        const patch = stripLegacyFields
+          ? {
+              ...document,
+              site: deleteField(),
+              username: deleteField(),
+              password: deleteField(),
+            }
+          : document
+        return updateVaultEntry(user.uid, id, patch)
+      })
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }))
 
