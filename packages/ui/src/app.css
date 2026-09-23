@@ -24,8 +24,11 @@ body {
 }
 
 .jpass__logo {
-  font-size: 26px;
-  line-height: 1;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
 }
 
 .jpass__title {

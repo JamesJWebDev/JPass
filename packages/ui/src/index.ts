@@ -1,3 +1,4 @@
+export { JPassLogo } from './JPassLogo'
 export { Login } from './Login'
 export type { LoginProps } from './Login'
 export { MasterPasswordGate } from './MasterPasswordGate'

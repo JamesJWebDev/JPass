@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { JPassLogo } from './JPassLogo'
 import './app.css'
 import './login.css'
 
@@ -43,9 +44,7 @@ export function MasterPasswordGate({
   return (
     <main className="jpass">
       <header className="jpass__header">
-        <span className="jpass__logo" aria-hidden="true">
-          🔐
-        </span>
+        <JPassLogo />
         <h1 className="jpass__title">JPass</h1>
       </header>
       <p className="jpass__subtitle">

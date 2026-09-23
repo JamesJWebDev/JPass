@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { VaultEntry, VaultEntryInput } from '@jpass/core'
+import { JPassLogo } from './JPassLogo'
 import { VaultEntryRow } from './VaultEntryRow'
 import './app.css'
 import './login.css'
@@ -45,9 +46,7 @@ export function Vault({
   return (
     <main className="jpass">
       <header className="jpass__header">
-        <span className="jpass__logo" aria-hidden="true">
-          🔐
-        </span>
+        <JPassLogo />
         <h1 className="jpass__title">JPass</h1>
       </header>
       <p className="jpass__subtitle">Signed in as {userEmail}</p>

@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     root: 'src',
+    publicDir: resolve(__dirname, 'public'),
     define: envDefines,
     build: {
       outDir: '../dist',

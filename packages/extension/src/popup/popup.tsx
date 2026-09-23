@@ -1,7 +1,7 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { StoredVaultEntry, VaultEntry, VaultEntryInput, VaultMetaRecord } from '@jpass/core'
-import { Login, MasterPasswordGate, Vault } from '@jpass/ui'
+import { JPassLogo, Login, MasterPasswordGate, Vault } from '@jpass/ui'
 import {
   decryptStoredEntry,
   encryptVaultEntry,
@@ -246,9 +246,7 @@ function AuthGate() {
     return (
       <main className="jpass">
         <header className="jpass__header">
-          <span className="jpass__logo" aria-hidden="true">
-            🔐
-          </span>
+          <JPassLogo />
           <h1 className="jpass__title">JPass</h1>
         </header>
         <p className="jpass__subtitle">Loading…</p>
@@ -272,9 +270,7 @@ function AuthGate() {
     return (
       <main className="jpass">
         <header className="jpass__header">
-          <span className="jpass__logo" aria-hidden="true">
-            🔐
-          </span>
+          <JPassLogo />
           <h1 className="jpass__title">JPass</h1>
         </header>
         <p className="jpass__subtitle">Checking vault…</p>
