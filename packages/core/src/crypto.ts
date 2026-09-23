@@ -12,11 +12,31 @@ export interface EncryptedBlob {
 
 let sodiumReady: Promise<typeof _sodium> | undefined
 
+function assertSodiumConstants(sodium: typeof _sodium): void {
+  if (
+    typeof sodium.crypto_pwhash_SALTBYTES !== 'number' ||
+    typeof sodium.crypto_secretbox_KEYBYTES !== 'number' ||
+    typeof sodium.crypto_secretbox_NONCEBYTES !== 'number'
+  ) {
+    throw new Error(
+      'libsodium did not initialize (check extension CSP allows wasm-unsafe-eval, then reload)'
+    )
+  }
+}
+
 function getSodium(): Promise<typeof _sodium> {
   if (!sodiumReady) {
-    sodiumReady = _sodium.ready.then(() => _sodium)
+    sodiumReady = _sodium.ready.then(() => {
+      assertSodiumConstants(_sodium)
+      return _sodium
+    })
   }
   return sodiumReady
+}
+
+/** Call once when the popup opens so libsodium WASM is ready before unlock/setup. */
+export async function ensureSodiumReady(): Promise<void> {
+  await getSodium()
 }
 
 export async function generateSaltBase64(): Promise<string> {
@@ -26,22 +46,35 @@ export async function generateSaltBase64(): Promise<string> {
 
 export async function deriveVaultKey(masterPassword: string, saltBase64: string): Promise<VaultKey> {
   const sodium = await getSodium()
+
+  if (!masterPassword) {
+    throw new Error('Master password is required')
+  }
+
   const salt = sodium.from_base64(saltBase64)
+  if (salt.length !== sodium.crypto_pwhash_SALTBYTES) {
+    throw new Error('Invalid vault salt')
+  }
+
+  const algorithm =
+    typeof sodium.crypto_pwhash_ALG_ARGON2ID13 === 'number'
+      ? sodium.crypto_pwhash_ALG_ARGON2ID13
+      : sodium.crypto_pwhash_ALG_DEFAULT
 
   return sodium.crypto_pwhash(
     sodium.crypto_secretbox_KEYBYTES,
-    masterPassword,
+    sodium.from_string(masterPassword),
     salt,
     sodium.crypto_pwhash_OPSLIMIT_MODERATE,
     sodium.crypto_pwhash_MEMLIMIT_MODERATE,
-    sodium.crypto_pwhash_ALG_ARGON2ID13
+    algorithm
   )
 }
 
 export async function encryptString(key: VaultKey, plaintext: string): Promise<EncryptedBlob> {
   const sodium = await getSodium()
   const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
-  const ciphertext = sodium.crypto_secretbox_easy(plaintext, nonce, key)
+  const ciphertext = sodium.crypto_secretbox_easy(sodium.from_string(plaintext), nonce, key)
 
   return {
     iv: sodium.to_base64(nonce),
@@ -57,7 +90,7 @@ export async function decryptString(
   const sodium = await getSodium()
   const nonce = sodium.from_base64(ivBase64)
   const ciphertext = sodium.from_base64(ciphertextBase64)
-  return sodium.crypto_secretbox_open_easy(ciphertext, nonce, key)
+  return sodium.to_string(sodium.crypto_secretbox_open_easy(ciphertext, nonce, key))
 }
 
 export async function createVerifierBlob(key: VaultKey): Promise<EncryptedBlob> {

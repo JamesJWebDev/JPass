@@ -1,6 +1,12 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import type { StoredVaultEntry, VaultEntry, VaultEntryInput, VaultMetaRecord } from '@jpass/core'
+import {
+  ensureSodiumReady,
+  type StoredVaultEntry,
+  type VaultEntry,
+  type VaultEntryInput,
+  type VaultMetaRecord,
+} from '@jpass/core'
 import { Login, MasterPasswordGate, Vault } from '@jpass/ui'
 import {
   decryptStoredEntry,
@@ -77,6 +83,12 @@ function AuthGate() {
       } finally {
         setVaultLoading(false)
       }
+    })
+  }, [])
+
+  useEffect(() => {
+    void ensureSodiumReady().catch((err) => {
+      setMasterError(err instanceof Error ? err.message : 'Could not initialize encryption')
     })
   }, [])
 

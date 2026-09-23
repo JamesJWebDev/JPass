@@ -11,6 +11,7 @@ export {
   decryptString,
   deriveVaultKey,
   encryptString,
+  ensureSodiumReady,
   generateSaltBase64,
   verifyVaultKey,
 } from './crypto'

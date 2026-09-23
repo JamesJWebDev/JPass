@@ -12,14 +12,22 @@ declare module 'libsodium-wrappers' {
     from_base64(input: string): Uint8Array
     crypto_pwhash(
       keyLength: number,
-      password: string,
+      password: string | Uint8Array,
       salt: Uint8Array,
       opsLimit: number,
       memLimit: number,
       algorithm: number
     ): Uint8Array
-    crypto_secretbox_easy(message: string, nonce: Uint8Array, key: Uint8Array): Uint8Array
-    crypto_secretbox_open_easy(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8Array): string
+    crypto_secretbox_easy(
+      message: string | Uint8Array,
+      nonce: Uint8Array,
+      key: Uint8Array
+    ): Uint8Array
+    crypto_secretbox_open_easy(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8Array): Uint8Array
+    crypto_pwhash_ALG_DEFAULT: number
+    crypto_pwhash_ALG_ARGON2ID13: number
+    from_string(input: string): Uint8Array
+    to_string(input: Uint8Array): string
   }
   export default sodium
 }
